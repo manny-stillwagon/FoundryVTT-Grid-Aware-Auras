@@ -1,13 +1,15 @@
 # Grid-Aware Auras
 
-[![Latest module version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2FWibble199%2FFoundryVTT-Grid-Aware-Auras%2Freleases%2Flatest%2Fdownload%2Fmodule.json&query=%24.version&prefix=v&style=for-the-badge&label=module%20version)](https://github.com/Wibble199/FoundryVTT-Grid-Aware-Auras/releases/latest)
-![Latest Foundry version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2FWibble199%2FFoundryVTT-Grid-Aware-Auras%2Freleases%2Flatest%2Fdownload%2Fmodule.json&query=%24.compatibility.verified&style=for-the-badge&label=foundry%20version&color=fe6a1f)
+[![Latest module version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fmanny-stillwagon%2FFoundryVTT-Grid-Aware-Auras%2Freleases%2Flatest%2Fdownload%2Fmodule.json&query=%24.version&prefix=v&style=for-the-badge&label=module%20version)](https://github.com/manny-stillwagon/FoundryVTT-Grid-Aware-Auras/releases/latest)
+![Latest Foundry version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fmanny-stillwagon%2FFoundryVTT-Grid-Aware-Auras%2Freleases%2Flatest%2Fdownload%2Fmodule.json&query=%24.compatibility.verified&style=for-the-badge&label=foundry%20version&color=fe6a1f)
 <br/>
 
 A module which draws grid-accurate auras around tokens, which supports any size token and has customisable display styles.
 
 ## Manny's Note
-This is my attempt to update this module for v14 of Foundry. I will likely not be adding any features, just trying to maintain functionality. WIP.
+This is my attempt to update this module for v14 of Foundry. I will likely not be adding any features, just trying to maintain functionality.
+
+Original ReadMe continues below.
 
 ![Preview image](./docs/img/preview.png)
 

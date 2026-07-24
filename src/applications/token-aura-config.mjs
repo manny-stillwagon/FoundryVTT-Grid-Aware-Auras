@@ -5,7 +5,10 @@ import { repeat } from "lit/directives/repeat.js";
 import { styleMap } from "lit/directives/style-map.js";
 import { when } from "lit/directives/when.js";
 import { DOCUMENT_AURAS_FLAG, MODULE_NAME } from "../consts.mjs";
-import { createRadiusExpressionContext, getDocumentOwnAuras } from "../data/aura.mjs";
+import {
+  createRadiusExpressionContext,
+  getDocumentOwnAuras,
+} from "../data/aura.mjs";
 import { AuraLayer } from "../layers/aura-layer/aura-layer.mjs";
 import { warn } from "../utils/misc-utils.mjs";
 
@@ -18,135 +21,154 @@ const elementRef = Symbol("auraTableElementRef");
  * Implemented as an element as it contains state that should be persisted between TokenConfig renders.
  */
 class TokenConfigGridAwareAurasElement extends LitElement {
+  static properties = {
+    tokenConfig: { attribute: false },
+  };
 
-	static properties = {
-		tokenConfig: { attribute: false }
-	};
+  /** @type {TokenConfig} */
+  tokenConfig;
 
-	/** @type {TokenConfig} */
-	tokenConfig;
+  /** @type {{ value?: AuraTable; }} */
+  #tokenAurasTableRef = createRef();
 
-	/** @type {{ value?: AuraTable; }} */
-	#tokenAurasTableRef = createRef();
+  get appId() {
+    return `${this.tokenConfig.appId}-gridawareauras`;
+  }
 
-	get appId() {
-		return `${this.tokenConfig.appId}-gridawareauras`;
-	}
+  get #preview() {
+    return game.release.generation === 12
+      ? this.tokenConfig.preview
+      : this.tokenConfig._preview;
+  }
 
-	get #preview() {
-		return game.release.generation === 12
-			? this.tokenConfig.preview
-			: this.tokenConfig._preview;
-	}
+  get actor() {
+    return this.tokenConfig.actor;
+  }
 
-	get actor() {
-		return this.tokenConfig.actor;
-	}
+  get token() {
+    return this.tokenConfig.token;
+  }
 
-	get token() {
-		return this.tokenConfig.token;
-	}
+  render() {
+    /** @type {Actor | undefined} */
+    const actor = this.actor;
+    const tokenAuras = getDocumentOwnAuras(this.#preview ?? this.token);
 
-	render() {
-		/** @type {Actor | undefined} */
-		const actor = this.actor;
-		const tokenAuras = getDocumentOwnAuras(this.#preview ?? this.token);
+    /** @type {Item[]} */
+    const items = actor?.items ?? [];
+    const itemsWithAuras = items
+      .map((item) => ({ item, auras: getDocumentOwnAuras(item) }))
+      .filter(({ auras }) => auras.length > 0);
 
-		/** @type {Item[]} */
-		const items = actor?.items ?? [];
-		const itemsWithAuras = items
-			.map(item => ({ item, auras: getDocumentOwnAuras(item) }))
-			.filter(({ auras }) => auras.length > 0);
+    return html`
+      <gaa-aura-table
+        name=${`flags.${MODULE_NAME}.${DOCUMENT_AURAS_FLAG}`}
+        .value=${tokenAuras}
+        subHeadingText="Token"
+        @change=${(e) => {
+          this.#onChangeInput(e);
+          this.#requestResize();
+        }}
+        .radiusContext=${createRadiusExpressionContext(actor)}
+        ${ref(this.#tokenAurasTableRef)}
+        style=${styleMap({
+          display: "block",
+          marginTop: "0.5rem",
+          marginBottom: itemsWithAuras.length ? "0" : "0.5rem",
+        })}
+      ></gaa-aura-table>
 
-		return html`
-			<gaa-aura-table
-				name=${`flags.${MODULE_NAME}.${DOCUMENT_AURAS_FLAG}`}
-				.value=${tokenAuras}
-				subHeadingText="Token"
-				@change=${e => { this.#onChangeInput(e); this.#requestResize(); }}
-				.radiusContext=${createRadiusExpressionContext(actor)}
-				${ref(this.#tokenAurasTableRef)}
-				style=${styleMap({ display: "block", marginTop: "0.5rem", marginBottom: itemsWithAuras.length ? "0" : "0.5rem" })}
-			></gaa-aura-table>
+      ${repeat(
+        itemsWithAuras,
+        ({ item }) => item.id,
+        ({ item, auras }) => html`
+          <gaa-aura-table
+            .value=${auras}
+            .parentId=${item.id}
+            .showHeader=${false}
+            .subHeadingText=${item.name}
+            .attachConfigsTo=${item}
+            .radiusContext=${createRadiusExpressionContext(actor, item)}
+            @change=${(e) => this.#updateItemAura(item, e.target.value)}
+          ></gaa-aura-table>
+        `,
+      )}
+      ${when(
+        itemsWithAuras.length > 0,
+        () => html`
+          <hr class="hr-narrow" />
+          <p>
+            <small
+              >Note that changes made to auras on items are saved immediately
+              (even if you do not click '${game.i18n.localize("TOKEN.Update")}'
+              below).</small
+            >
+          </p>
+        `,
+      )}
+    `;
+  }
 
-			${repeat(itemsWithAuras, ({ item }) => item.id, ({ item, auras }) => html`
-				<gaa-aura-table
-					.value=${auras}
-					.parentId=${item.id}
-					.showHeader=${false}
-					.subHeadingText=${item.name}
-					.attachConfigsTo=${item}
-					.radiusContext=${createRadiusExpressionContext(actor, item)}
-					@change=${e => this.#updateItemAura(item, e.target.value)}
-				></gaa-aura-table>
-			`)}
+  connectedCallback() {
+    super.connectedCallback();
 
-			${when(itemsWithAuras.length > 0, () => html`
-				<hr class="hr-narrow" />
-				<p><small>Note that changes made to auras on items are saved immediately (even if you do not click '${game.i18n.localize("TOKEN.Update")}' below).</small></p>
-			`)}
-		`;
-	}
+    // When the token's actor redraws (which happens when Items change), redraw this element
+    // Actor may not always be present (e.g. if the actor was deleted but token was not)
+    if (this.actor) {
+      this.actor.apps[this.appId] = {
+        render: () => this.requestUpdate(),
+        close: () => {},
+      };
+    }
+  }
 
-	connectedCallback() {
-		super.connectedCallback();
+  disconnectedCallback() {
+    super.disconnectedCallback();
 
-		// When the token's actor redraws (which happens when Items change), redraw this element
-		// Actor may not always be present (e.g. if the actor was deleted but token was not)
-		if (this.actor) {
-			this.actor.apps[this.appId] = {
-				render: () => this.requestUpdate(),
-				close: () => {}
-			};
-		}
-	}
+    // Remove the function that redraws this element when the actor changes.
+    // Actor may not always be present (e.g. if the actor was deleted but token was not)
+    if (this.actor) {
+      delete this.actor.apps[this.appId];
+    }
+  }
 
-	disconnectedCallback() {
-		super.disconnectedCallback();
+  /** @param {Event} e */
+  #onChangeInput(e) {
+    if (game.release.generation === 12) this.tokenConfig._onChangeInput(e);
+  }
 
-		// Remove the function that redraws this element when the actor changes.
-		// Actor may not always be present (e.g. if the actor was deleted but token was not)
-		if (this.actor) {
-			delete this.actor.apps[this.appId];
-		}
-	}
+  /**
+   * @param {Item} item
+   * @param {import("../data/aura.mjs").AuraConfig[]} auras
+   */
+  async #updateItemAura(item, auras) {
+    await item.update({
+      [`flags.${MODULE_NAME}.${DOCUMENT_AURAS_FLAG}`]: auras,
+    });
 
-	/** @param {Event} e */
-	#onChangeInput(e) {
-		if (game.release.generation === 12)
-			this.tokenConfig._onChangeInput(e);
-	}
+    // Because the preview token that appears when the TokenConfig is open is different from the token returned by
+    // Actor.getActiveTokens, the updateItem hook won't trigger an update on the preview token. So do it manually.
+    if (AuraLayer.current && this.#preview?.object) {
+      AuraLayer.current._updateAuras({ token: this.#preview.object });
+    }
+  }
 
-	/**
-	 * @param {Item} item
-	 * @param {import("../data/aura.mjs").AuraConfig[]} auras
-	 */
-	async #updateItemAura(item, auras) {
-		await item.update({ [`flags.${MODULE_NAME}.${DOCUMENT_AURAS_FLAG}`]: auras });
+  #requestResize() {
+    this.dispatchEvent(new Event("requestresize"));
+  }
 
-		// Because the preview token that appears when the TokenConfig is open is different from the token returned by
-		// Actor.getActiveTokens, the updateItem hook won't trigger an update on the preview token. So do it manually.
-		if (AuraLayer.current && this.#preview?.object) {
-			AuraLayer.current._updateAuras({ token: this.#preview.object });
-		}
-	}
+  // Disable shadow DOM
+  createRenderRoot() {
+    return this;
+  }
 
-	#requestResize() {
-		this.dispatchEvent(new Event("requestresize"));
-	}
-
-	// Disable shadow DOM
-	createRenderRoot() {
-		return this;
-	}
-
-	/**
-	 * Closes any Aura dialogs that have been opened from the token's own config.
-	 * Does not close Aura dialogs from owned items because those are still active and can still be edited.
-	 */
-	_closeOpenDialogs() {
-		this.#tokenAurasTableRef.value?._closeOpenDialogs();
-	}
+  /**
+   * Closes any Aura dialogs that have been opened from the token's own config.
+   * Does not close Aura dialogs from owned items because those are still active and can still be edited.
+   */
+  _closeOpenDialogs() {
+    this.#tokenAurasTableRef.value?._closeOpenDialogs();
+  }
 }
 
 customElements.define(elementName, TokenConfigGridAwareAurasElement);
@@ -158,60 +180,68 @@ customElements.define(elementName, TokenConfigGridAwareAurasElement);
  * @this {TokenConfig}
  */
 export async function v12TokenConfigRenderInner(wrapped, ...args) {
-	const html = await wrapped(...args);
+  const html = await wrapped(...args);
 
-	const updateTokenConfigSize = () => setTimeout(() => {
-		if (this._state === Application.RENDER_STATES.RENDERED)
-			this.setPosition();
-	}, 0);
+  const updateTokenConfigSize = () =>
+    setTimeout(() => {
+      if (this._state === Application.RENDER_STATES.RENDERED)
+        this.setPosition();
+    }, 0);
 
-	// Insert a tab item for the new control
-	html.find("> nav.sheet-tabs").append(`
+  // Insert a tab item for the new control
+  html.find("> nav.sheet-tabs").append(`
 		<a class="item" data-tab="gridawareauras"><i class="far fa-hexagon"></i> ${game.i18n.localize("GRIDAWAREAURAS.Auras")}</a>
 	`);
 
-	// Create an TokenConfigGridAwareAurasElement custom element, if there isn't one already.
-	// Don't destroy and re-create the table on redraw because then we lose state which needs to be persisted.
-	/** @type {TokenConfigGridAwareAurasElement} */
-	let element = this[elementRef];
-	if (!element) {
-		element = this[elementRef] = document.createElement(elementName);
-		element.tokenConfig = this;
-		element.addEventListener("requestresize", updateTokenConfigSize);
-	}
+  // Create an TokenConfigGridAwareAurasElement custom element, if there isn't one already.
+  // Don't destroy and re-create the table on redraw because then we lose state which needs to be persisted.
+  /** @type {TokenConfigGridAwareAurasElement} */
+  let element = this[elementRef];
+  if (!element) {
+    element = this[elementRef] = document.createElement(elementName);
+    element.tokenConfig = this;
+    element.addEventListener("requestresize", updateTokenConfigSize);
+  }
 
-	// Create the tab where the element will reside
-	const tabContent = $(`<div class="tab" data-group="main" data-tab="gridawareauras"></div>`);
-	html.find("> footer").before(tabContent);
+  // Create the tab where the element will reside
+  const tabContent = $(
+    `<div class="tab" data-group="main" data-tab="gridawareauras"></div>`,
+  );
+  html.find("> footer").before(tabContent);
 
-	// Attach the table to the tab
-	tabContent.get(0).appendChild(element);
-	updateTokenConfigSize();
+  // Attach the table to the tab
+  tabContent.get(0).appendChild(element);
+  updateTokenConfigSize();
 
-	return html;
+  return html;
 }
 
 /**
  * @param {TokenConfig} tokenConfig
  * @param {HTMLElement} tokenConfigElement
  */
+
+// Currently used for both v13 and v14 until I find something broken
 export async function v13TokenConfigRender(tokenConfig, tokenConfigElement) {
-	const gaaTab = tokenConfigElement.querySelector("[data-application-part='gridAwareAuras']");
-	if (!gaaTab) {
-		warn("Failed to add Grid-Aware Aura config to token config sheet.");
-		return;
-	}
+  const gaaTab = tokenConfigElement.querySelector(
+    "[data-application-part='gridAwareAuras']",
+  );
+  if (!gaaTab) {
+    warn("Failed to add Grid-Aware Aura config to token config sheet.");
+    return;
+  }
 
-	// Create an TokenConfigGridAwareAurasElement custom element, if there isn't one already.
-	// Don't destroy and re-create the table on redraw because then we lose state which needs to be persisted.
-	/** @type {TokenConfigGridAwareAurasElement} */
-	let gaaConfigElement = tokenConfig[elementRef];
-	if (!gaaConfigElement) {
-		gaaConfigElement = tokenConfig[elementRef] = document.createElement(elementName);
-		gaaConfigElement.tokenConfig = tokenConfig;
-	}
+  // Create an TokenConfigGridAwareAurasElement custom element, if there isn't one already.
+  // Don't destroy and re-create the table on redraw because then we lose state which needs to be persisted.
+  /** @type {TokenConfigGridAwareAurasElement} */
+  let gaaConfigElement = tokenConfig[elementRef];
+  if (!gaaConfigElement) {
+    gaaConfigElement = tokenConfig[elementRef] =
+      document.createElement(elementName);
+    gaaConfigElement.tokenConfig = tokenConfig;
+  }
 
-	gaaTab.replaceChildren(gaaConfigElement);
+  gaaTab.replaceChildren(gaaConfigElement);
 }
 
 /**
@@ -219,11 +249,11 @@ export async function v13TokenConfigRender(tokenConfig, tokenConfigElement) {
  * @param {TokenConfig} tokenConfig
  */
 export function tokenConfigClose(tokenConfig) {
-	/** @type {TokenConfigGridAwareAurasElement} */
-	const element = tokenConfig[elementRef];
-	if (!element) return;
-	delete tokenConfig[elementRef];
+  /** @type {TokenConfigGridAwareAurasElement} */
+  const element = tokenConfig[elementRef];
+  if (!element) return;
+  delete tokenConfig[elementRef];
 
-	// Clean up
-	element._closeOpenDialogs();
+  // Clean up
+  element._closeOpenDialogs();
 }
