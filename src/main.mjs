@@ -29,7 +29,7 @@ const watchedTokenProperties = [
   "y",
   "width",
   "height",
-  "hexagonalShape",
+  "shape",
   "flags.grid-aware-auras.auras",
 ];
 
