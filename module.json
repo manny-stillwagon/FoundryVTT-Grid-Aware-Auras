@@ -10,7 +10,13 @@
   },
   "authors": [
     {
+      "name": "Will Bennion",
+      "discord": "@wibble199",
+      "flags": {}
+    },
+    {
       "name": "Manny Stillwagon",
+      "discord": "manny_stillwagon",
       "flags": {}
     }
   ],
