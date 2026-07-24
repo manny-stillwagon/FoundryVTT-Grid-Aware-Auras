@@ -10,7 +10,8 @@
   },
   "authors": [
     {
-      "name": "Manny Stillwagon"
+      "name": "Manny Stillwagon",
+      "flags": {}
     }
   ],
   "scripts": ["dist/module.js"],

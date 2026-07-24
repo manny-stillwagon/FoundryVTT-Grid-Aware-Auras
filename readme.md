@@ -7,15 +7,17 @@
 A module which draws grid-accurate auras around tokens, which supports any size token and has customisable display styles.
 
 ## Manny's Note
-This is my attempt to update this module for v14 of Foundry. I will likely not be adding any features, just trying to maintain functionality.
+This fork updates Wibble199's original module for Foundry VTT v14.
+
+I will likely not be adding any features, just trying to maintain functionality. Please open an issue if you find any problems.
 
 Original ReadMe continues below.
 
-![Preview image](./docs/img/preview.png)
-
-## Installation
+### Installation
 
 Paste this URL into the 'Manifest URL' field of the 'Install Module' dialog in the Foundry configuration: `https://github.com/manny-stillwagon/FoundryVTT-Grid-Aware-Auras/releases/latest/download/module.json`, then enable the module in your world.
+
+![Preview image](./docs/img/preview.png)
 
 ## Usage
 
