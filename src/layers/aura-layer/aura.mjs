@@ -82,7 +82,7 @@ export class Aura {
   update(config, { tokenDelta, force = false } = {}) {
     const shouldRedraw =
       force ||
-      !foundry.utils.objectsEqual(this.#config, config) ||
+      !foundry.utils.equals(this.#config, config) ||
       this.#radius !== config.radiusCalculated ||
       this.#innerRadius !== config.innerRadiusCalculated ||
       (!!tokenDelta &&

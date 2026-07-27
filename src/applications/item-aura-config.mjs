@@ -5,106 +5,115 @@ import { createRef, ref } from "lit/directives/ref.js";
 import { when } from "lit/directives/when.js";
 import "../components/aura-table.mjs";
 import { DOCUMENT_AURAS_FLAG, MODULE_NAME } from "../consts.mjs";
-import { createRadiusExpressionContext, getDocumentOwnAuras } from "../data/aura.mjs";
+import {
+  createRadiusExpressionContext,
+  getDocumentOwnAuras,
+} from "../data/aura.mjs";
 
 const { ApplicationV2 } = foundry.applications.api;
 
 export class ItemAuraConfigApplication extends ApplicationV2 {
+  #item;
 
-	#item;
+  #disabled;
 
-	#disabled;
+  /** @type {{ value?: AuraTable }} */
+  #auraTableRef = createRef();
 
-	/** @type {{ value?: AuraTable }} */
-	#auraTableRef = createRef();
+  /**
+   * @param {Item} item
+   * @param {Object} [options]
+   * @param {boolean} [options.disabled]
+   */
+  constructor(item, { disabled = false, ...optionsPassthrough } = {}) {
+    super(optionsPassthrough);
 
-	/**
-	 * @param {Item} item
-	 * @param {Object} [options]
-	 * @param {boolean} [options.disabled]
-	 */
-	constructor(item, { disabled = false, ...optionsPassthrough } = {}) {
-		super(optionsPassthrough);
+    this.#item = item;
+    this.#disabled = disabled;
+    item.apps[this.appId] = this;
+  }
 
-		this.#item = item;
-		this.#disabled = disabled;
-		item.apps[this.appId] = this;
-	}
+  static DEFAULT_OPTIONS = {
+    tag: "form",
+    window: {
+      contentClasses: ["sheet", "standard-form"],
+      icon: "far fa-hexagon",
+    },
+    position: {
+      width: 500,
+      height: "auto",
+    },
+    form: {
+      closeOnSubmit: true,
+      handler: ItemAuraConfigApplication.#onSubmit,
+    },
+  };
 
-	static DEFAULT_OPTIONS = {
-		tag: "form",
-		window: {
-			contentClasses: ["sheet", "standard-form"],
-			icon: "far fa-hexagon"
-		},
-		position: {
-			width: 500,
-			height: "auto"
-		},
-		form: {
-			closeOnSubmit: true,
-			handler: ItemAuraConfigApplication.#onSubmit
-		}
-	};
+  /** @override */
+  get id() {
+    return `gaa-token-aura-config-${this.#item.id}`;
+  }
 
-	/** @override */
-	get id() {
-		return `gaa-token-aura-config-${this.#item.id}`;
-	}
+  /** @override */
+  get title() {
+    return `Aura Configuration: ${this.#item.name}`;
+  }
 
-	/** @override */
-	get title() {
-		return `Aura Configuration: ${this.#item.name}`;
-	}
+  /** @override */
+  _renderHTML() {
+    return html`
+      <gaa-aura-table
+        name="auras"
+        .value=${getDocumentOwnAuras(this.#item)}
+        .disabled=${this.#disabled}
+        .parentId=${this.#item.id}
+        .radiusContext=${createRadiusExpressionContext(
+          this.#item.parent,
+          this.#item,
+        )}
+        ${ref(this.#auraTableRef)}
+      >
+      </gaa-aura-table>
 
-	/** @override */
-	_renderHTML() {
-		return html`
-			<gaa-aura-table
-				name="auras"
-				.value=${getDocumentOwnAuras(this.#item)}
-				.disabled=${this.#disabled}
-				.parentId=${this.#item.id}
-				.radiusContext=${createRadiusExpressionContext(this.#item.parent, this.#item)}
-				${ref(this.#auraTableRef)}>
-			</gaa-aura-table>
+      ${when(
+        !this.#disabled,
+        () => html`
+          <footer class="sheet-footer flexrow">
+            <button type="submit">
+              <i class="fas fa-save"></i>
+              ${game.i18n.localize("Save Changes")}
+            </button>
+          </footer>
+        `,
+      )}
+    `;
+  }
 
-			${when(!this.#disabled, () => html`
-				<footer class="sheet-footer flexrow">
-					<button type="submit">
-						<i class="fas fa-save"></i>
-						${game.i18n.localize("Save Changes")}
-					</button>
-				</footer>
-			`)}
-		`;
-	}
+  /**
+   * @this {ItemAuraConfigApplication}
+   * @param {Event} _event
+   * @param {HTMLFormElement} _form
+   * @param {foundry.applications.ux.FormDataExtended} formData
+   */
+  static async #onSubmit(_event, _form, formData) {
+    /** @type {{ auras: AuraConfig[] }} */
+    const { auras } = formData.object;
 
-	/**
-	 * @this {ItemAuraConfigApplication}
-	 * @param {Event} _event
-	 * @param {HTMLFormElement} _form
-	 * @param {FormDataExtended} formData
-	 */
-	static async #onSubmit(_event, _form, formData) {
-		/** @type {{ auras: AuraConfig[] }} */
-		const { auras } = formData.object;
+    await this.#item.update({
+      [`flags.${MODULE_NAME}.${DOCUMENT_AURAS_FLAG}`]: auras,
+    });
+  }
 
-		await this.#item.update({
-			[`flags.${MODULE_NAME}.${DOCUMENT_AURAS_FLAG}`]: auras
-		});
-	}
+  /** @override */
+  close(options = {}) {
+    this.#auraTableRef.value?._closeOpenDialogs();
+    return super.close(options);
+  }
 
-	/** @override */
-	close(options = {}) {
-		this.#auraTableRef.value?._closeOpenDialogs();
-		return super.close(options);
-	}
-
-	/** @override */
-	_replaceHTML(templateResult, container) {
-		render(templateResult, container);
-	}
+  /** @override */
+  _replaceHTML(templateResult, container) {
+    render(templateResult, container);
+  }
 }
 
 /**
@@ -113,18 +122,19 @@ export class ItemAuraConfigApplication extends ApplicationV2 {
  * @param {ApplicationHeaderButtons[]} buttons
  */
 export function addAuraConfigItemHeaderButton(sheet, buttons) {
-	if (!(sheet.document instanceof Item)) return;
-	if (sheet instanceof DocumentOwnershipConfig) return;
+  if (!(sheet.document instanceof Item)) return;
+  if (sheet instanceof DocumentOwnershipConfig) return;
 
-	buttons.unshift({
-		label: "Auras",
-		class: "configure-auras",
-		icon: "far fa-hexagon",
-		[sheet instanceof Application ? "onclick" : "onClick"]: e => {
-			e.preventDefault();
-			const disabled = typeof sheet.isEditable === "boolean" ? !sheet.isEditable : false;
-			const app = new ItemAuraConfigApplication(sheet.document, { disabled });
-			app.render(true);
-		}
-	});
+  buttons.unshift({
+    label: "Auras",
+    class: "configure-auras",
+    icon: "far fa-hexagon",
+    [sheet instanceof Application ? "onclick" : "onClick"]: (e) => {
+      e.preventDefault();
+      const disabled =
+        typeof sheet.isEditable === "boolean" ? !sheet.isEditable : false;
+      const app = new ItemAuraConfigApplication(sheet.document, { disabled });
+      app.render(true);
+    },
+  });
 }
